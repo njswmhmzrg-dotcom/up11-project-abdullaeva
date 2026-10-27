@@ -1,19 +1,27 @@
 import psycopg2
 
 def calculate_price(product_id, base_price):
-    #  (Задание 4)
+    # Проверка типов (Задание 3)
+    if not isinstance(product_id, int):
+        print("Ошибка: product_id должен быть числом")
+        return None
+    if not isinstance(base_price, (int, float)):
+        print("Ошибка: base_price должен быть числом")
+        return None
+    if base_price <= 0:
+        print("Ошибка: цена должна быть > 0")
+        return None
+
+    conn = None
+    cursor = None
+    
+    # Обработка ошибок БД (Задание 2)
     try:
-        #  (Задание 1)
         conn = psycopg2.connect(
-            host="localhost",
-            port=5432,
-            database="orders_db",
-            user="postgres",
-            password="123"
+            host="localhost", port=5432, database="orders_db", user="postgres", password="wrong"
         )
         cursor = conn.cursor()
-
-        #  (Задание 2)
+        
         query = """
             SELECT COUNT(*) 
             FROM order_items oi 
@@ -21,32 +29,40 @@ def calculate_price(product_id, base_price):
             WHERE oi.stock_item_id IN (SELECT stock_item_id FROM stock_items WHERE product_id = %s)
             AND o.order_date >= CURRENT_DATE - INTERVAL '1 month'
         """
-        # В БД связь идет через stock_items, запрос немного изменен
         cursor.execute(query, (product_id,))
-        
-        #  Проверка результата
         result = cursor.fetchone()
+
+        # Проверка fetchone() на None (Задание 4)
+        if result is None:
+            print("Ошибка: нет результата")
+            return None
+            
         orders_count = result[0]
 
-        # (Задание 3)
         if orders_count == 0:
-            final_price = float(base_price) * 0.75
+            return float(base_price) * 0.75
         else:
-            final_price = base_price
-
-        return final_price
-
+            return float(base_price)
+            
     except psycopg2.Error as e:
         print(f"Ошибка БД: {e}")
         return None
+    except Exception as e:
+        print(f"Неизвестная ошибка: {e}")
+        return None
     finally:
-        # Закрытие соединения
-        if 'cursor' in locals():
+        if cursor:
             cursor.close()
-        if 'conn' in locals():
+        if conn:
             conn.close()
 
-#  (Задание 3.2)
+# Тесты для Задания 3.2 и 4.2
 if __name__ == "__main__":
-    test_price = calculate_price(1, 1000)
-    print(f"Результат для товара 1: {test_price}")
+    print("--- Тесты на неправильные данные (3.2) ---")
+    calculate_price("abc", 1000) 
+    calculate_price(1, "abc")   
+    calculate_price(1, -100)    
+    calculate_price(1, None)    
+    
+    print("\n--- Тест для Задания 4.2 ---")
+    print("Результат для несуществующего ID:", calculate_price(99999, 1000))
